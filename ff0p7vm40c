@@ -1,0 +1,10 @@
+set_parasitic_parameters -early_spec tlup_min -late_spec tlup_min -early_temperature -125 -late_temperature -125 -corners {ss0p6v125c}
+
+
+#########as we want are working on ff so we are checking minimun delays for hold 
+
+#set_operating_conditions -max ff0p7vm40c -min ss0p72v125c
+
+set_voltage 0.6 -object_list VDD
+set_voltage 0.72 -object_list VDDh
+set_voltage 0 -object_list VSS
