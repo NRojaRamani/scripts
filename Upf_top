@@ -1,0 +1,56 @@
+load_upf /home1/PD06/NRramani/Raven_SoC/Raven/div/synth/scripts/picorv32_pcpi_div.upf -scope cpu/genblk2.pcpi_div
+
+load_upf /home1/PD06/NRramani/Raven_SoC/Raven/mul/syn/scripts/picorv32_pcpi_mul.upf -scope cpu/genblk1.pcpi_mul
+
+load_upf /home1/PD06/NRramani/Raven_SoC/Raven/simpleuart/synth/scripts/simpleuart.upf -scope simpleuart
+
+load_upf /home1/PD06/NRramani/Raven_SoC/Raven/spimemio/synth/scripts/spimemio.upf -scope spimemio
+
+
+create_power_domain PD -include_scope
+
+
+create_supply_net VDD
+create_supply_net VSS
+create_supply_net VDDh
+
+create_supply_port VDD -domain PD -direction in
+create_supply_port VSS -domain PD -direction in
+create_supply_port VDDh -domain PD -direction in
+
+
+connect_supply_net VDD -ports {VDD simpleuart/VDDo cpu/genblk2.pcpi_div/VDDo cpu/genblk1.pcpi_mul/VDD spimemio/VDD}
+
+connect_supply_net VDDh -ports {VDDh simpleuart/VDD cpu/genblk2.pcpi_div/VDD}
+
+connect_supply_net VSS -ports {VSS simpleuart/VSS cpu/genblk2.pcpi_div/VSS cpu/genblk1.pcpi_mul/VSS spimemio/VSS}
+
+set_domain_supply_net PD -primary_power_net VDD -primary_ground_net VSS
+set_related_supply_net  -power VDDh -ground VSS
+
+
+
+
+
+
+
+
+
+
+#create_supply_set SS_0v6 -power VDD -ground VSS
+#create_supply_set SS_0v7 -power VDDh -ground VSS
+
+#set_voltage -supply_set SS_0v6 -voltage 0.6 -corner turbo.ss0p6v125c_WC.RC_MAX
+#set_voltage -supply_set SS_0v7 -voltage 0.72 -corner turbo.ss0p72v125c_WC.RC_MAX
+
+
+
+
+
+
+
+
+
+
+#create_power_domain PD -elements simpleuart -scope simpleuart -include_scope 
+#create_power_domain  PD -elements cpu/genblk2.pcpi_div -scope cpu/genblk2.pcpi_div -include_scope  
