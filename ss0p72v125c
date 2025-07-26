@@ -1,0 +1,12 @@
+set_parasitic_parameters -early_spec tlup_max -late_spec tlup_max -early_temperature 125 -late_temperature 125 -corners {ss0p72v125c}
+
+
+
+
+############as we are working on the slow slow so we are checking for maximum delay for setups
+
+#set_operating_conditions -max ss0p72v125c -min  ff0p7vm40c; ###as max means worst case so we check for ss and min 
+
+set_voltage 0.72 -object_list VDDh
+set_voltage 0.6 -object_list VDD
+set_voltage 0 -object_list VSS
