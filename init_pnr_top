@@ -1,0 +1,127 @@
+####################################  inti_design##########################################################
+
+set_host_options -max_cores 16
+source -echo "../scripts/design_setup.tcl"
+
+set REPORT_QOR 0
+set CURRENT_STEP "init_design"
+sh mkdir ../outputs/${CURRENT_STEP}
+sh mkdir ../reports/${CURRENT_STEP}
+set link_library $LINK_LIBRARY
+set target_library $LINK_LIBRARY
+
+
+
+create_lib -ref_libs $REFERENCE_LIBRARY -technology $TECH_FILE ../work/${DESIGN_LIBRARY}
+
+
+
+
+#####################################################################################################
+#########################READ_VERILOG##########################
+#####################################################################################################
+
+read_verilog ${VERILOG_NETLIST_FILES}
+current_design ${DESIGN_NAME}
+#link
+
+read_sdc ../../synth/outputs/raven_soc.sdc 
+#####################################################################################################
+#########################DESIGN CREATION : READ_UPF FULES##########################
+#####################################################################################################
+
+
+####### For golden UPF FLOW only (if supplement UPF is provided): enable golden UPF flow before reading UPF
+
+
+if {[file exists [which $UPF_SUPPLEMENTAL_FILE]]} {set_app_options -name mv.upf.enable_golden_upf -value true}
+
+if {[file exists [which $UPF_FILE]]} {
+
+load_upf $UPF_FILE
+
+
+####### For golden UPF FLOW only (if supplement UPF is provided):  reading supplemental upf file
+
+
+if {[file exists [which $UPF_SUPPLEMENTAL_FILE]]} {
+
+load_upf -supplemental $UPF_SUPPLEMENTAL_FILE
+
+} elseif {$UPF_SUPPLEMENTAL_FILE != ""} {
+
+puts "ERROR: UPF_SUPPLEMENTAL_FILE ($UPF_SUPPLEMENTAL_FILE) is invalid. Please correct it."
+
+}
+
+puts "INFO: RUNNING commit_upf"
+
+commit_upf
+} elseif {$UPF_FILE !="} {
+ puts "ERROR: UPF file ($UPF_FILE) is invalid. Please correct it."
+
+}
+
+
+
+#####################################################################################################
+#########################TIMING AND DESING CONSTRAINTS##########################
+#####################################################################################################
+
+
+source -echo "../scripts/TCL_PARASITIC_SETUP_FILE.tcl" 
+source -echo "../scripts/TCL_MCMM_SETUP_FILE.explicit.tcl"
+
+
+#####################################################################################################
+#########################NDRs   and Metal_layer direction##########################
+#####################################################################################################
+
+
+source -echo "../scripts/cts_ndr.tcl"
+
+define_user_attribute -type string -name routing_direction -classes routing_rule
+set_attr -objects [get_layers {M2 M4 M6 M8 MRDL}] -name routing_direction -value horizontal
+set_attr -objects [get_layers {M1 M5 M7 M9}] -name routing_direction -value vertical
+
+
+redirect ../reports/${CURRENT_STEP}/reports_routing_rules  {report_routing_rules -verbose}
+redirect ../reports/${CURRENT_STEP}/report_clock_routing_rules {report_clock_routing_rules}
+redirect ../reports/${CURRENT_STEP}/report_clock_setting {report_clock_setting}
+
+
+
+####################Lib cell usuage restriction (set_lib_cell_purpose)
+
+
+
+source -echo "../scripts/set_lib_cell_purpose.tcl"
+
+set_attr [get_lib_cells */*AO*] dont_use true 
+#set_app_var simplified_verfication_mode true
+
+#######define the verification setup file for the formailty
+
+
+
+set_svf ${OUTPUTS_DIR}/${DESIGN_NAME}.mapped.svf
+
+#####################################################################################################
+#########################  sanity checks and qor reports##########################
+#####################################################################################################
+
+
+if {$REPORT_QOR} {
+ redirect ../reports/${CURRENT_STEP}/qor {source -echo ../scripts/report_qor.tcl}
+ 
+}
+
+report_msg -summary
+
+print_message_info -ids * -summary
+echo [date] >../init_design
+save_block -as $DESIGN_NAME/init_design
+save_lib
+close_block
+close_lib
+exit
