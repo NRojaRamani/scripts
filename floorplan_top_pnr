@@ -1,0 +1,124 @@
+############################################################################################
+###################################	FLOORPLAN.TCL	###############################
+############################################################################################
+
+
+set_host_option -max_cores 16
+
+source -echo "../scripts/design_setup.tcl"
+set REPORTS_QOR 0
+set PREVIOUS_STEP init_design
+set CURRENT_STEP floorplan
+
+open_lib ${DESIGN_LIBRARY}
+
+copy_block -from ${DESIGN_NAME}/${PREVIOUS_STEP} -to ${DESIGN_NAME}/${CURRENT_STEP}
+
+current_block ${DESIGN_NAME}/${CURRENT_STEP}
+source -echo ../scripts/upf.tcl 
+set_early_data_check_policy -policy lenient -if_not_exist
+
+#link_block
+
+set_svf ${OUTPUTS_DIR}/${DESIGN_NAME}.${CURRENT_STEP}.svf
+
+############################################################################################
+########floorplan inputs tcl.floorplanfile (from write_floorplan) or DEF_floorplan_files (supports multiple DEF)
+############################################################################################
+
+
+
+initialize_floorplan -core_utilization 0.5 -core_offset {10}
+
+set_block_pin_constraints -self -allowed_layers {M5 M7 M4 M6}
+place_pins -self
+
+#place_pins -ports [get_ports -filter direction==in]
+
+
+
+#set_block_pin_constraints -self -allowed_layers {M4 M6} -side 3
+#place_pins -ports [get_ports -filter direction==out]
+
+
+
+set_attr [get_ports *] physical_status fixed
+
+
+
+############################################################################################
+###################################	TRACK	###############################
+############################################################################################
+
+
+
+remove_track -layer M1
+create_track -layer M1 -coord 1.111 -space 0.037
+report_track
+
+
+############################################################################################
+###################################	connect_pg_net	###############################
+############################################################################################
+
+connect_pg_net -automatic
+
+################## macro keepout margine #################
+
+create_keepout_margin spimemio -type hard -outer {3 3 3 3}
+create_keepout_margin simpleuart -type hard -outer {3 3 3 3}
+create_keepout_margin cpu/genblk1_pcpi_mul -type hard -outer {2.5 2.5 2.5 2.5}
+create_keepout_margin cpu/genblk2_pcpi_div -type hard -outer {3 3 3 3}
+############################################################################################
+###################################	fix macro ############################
+############################################################################################
+
+
+set_attr [get_cells -physical_context -filter design_type==macro] physical_status fixed
+
+
+################################################################################################
+###################################	BOUNDARY AND TAP CELLS ################################
+################################################################################################
+
+
+set_boundary_cell_rules \
+	-top_boundary_cells [get_lib_cells */*CAPT2]\
+	-bottom_boundary_cells [get_lib_cells */*CAPB2] \
+	-right_boundary_cell [get_lib_cells */*CAPBIN13] \
+	-left_boundary_cell [get_lib_cells */*CAPB3] \
+	-prefix ENDCAP
+
+
+suppress_message PLACE-007
+
+compile_targeted_boundary_cells -target_objects [get_voltage_areas]
+
+#create_tap_cells -lib_cell saed14lvt_ff0p7vm40c/SAEDLVT14_CAPTTAP6 -distance 30 -skip_fixed_cells
+
+
+
+check_legality -cells [get_cells bound*]
+
+#check_legality -cells [get_cell tap*]
+
+############################################################################################
+###################################	save	###############################
+############################################################################################
+
+save_block
+
+#create_abstract -read_only
+
+#create_frame -block_all true
+
+save_lib 
+
+
+echo [date] > ../floorplan
+
+close_block -f
+close_lib
+
+exit
+#remove_routing_blockages -force
