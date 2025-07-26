@@ -1,0 +1,115 @@
+set_host_options -max_cores 16
+
+source -echo ../scripts/design_setup.tcl
+
+set REPORT_QOR 1
+set PREVIOUS_STEP cts
+set CURRENT_STEP route
+
+sh mkdir ../reports/${CURRENT_STEP}
+sh mkdir ../outputs/${CURRENT_STEP}
+
+
+set PREVIOUS_STEP cts
+set CURRENT_STEP route
+
+open_lib ${DESIGN_LIBRARY}
+
+copy_block -from ${DESIGN_NAME}/${PREVIOUS_STEP} -to ${DESIGN_NAME}/${CURRENT_STEP}
+current_block ${DESIGN_NAME}/${CURRENT_STEP}
+
+source -echo ../scripts/upf.tcl 
+
+set_svf ../outputs/${DESIGN_NAME}.${CURRENT_STEP}.svf
+
+if {$ROUTE_OPT_ACTIVE_SCENARIO_LIST != " "} {
+	set_scenario_status -active false [get_scenarios -filter active]
+	set_scenario_status -active true $ROUTE_OPT_ACTIVE_SCENARIO_LIST}
+if {[sizeof_collection [get_scenarios -filter "hold && active"]] == 0} {
+	puts "Warning: No active hold scenario is found. Recommended to enable \
+hold scenarios here such that CCD skewing can consider them."
+	puts "Info: Please activate hold scenarios for CTS if they are available."
+}
+
+
+set_app_options -name route.detail.timing_driven -value true
+set_app_options -name route.track.timing_driven -value true
+set_app_options -name route.track.crosstalk_driven -value true
+set_app_options -name route.global.timing_driven -value true
+set_app_options -name route.common.global_min_layer_mode -value allow_pin_connection
+set_app_options -name route.common.global_min_layer_mode -value allow_pin_connection
+set_app_options -name time.si_enable_analysis -value true
+set_app_options -name time.enable_si_timing_windows -value true
+set_app_options -name time.enable_ccs_rcv_cap -value true
+
+set_ignored_layers -max_routing_layer M8 -min_routing_layer M2
+
+route_auto
+save_block -as raven_route_auto_4
+report_qor -summary
+
+set_app_options -name route.common.wire_on_grid_by_layer_name -value {{M1 true} {M2 true}}
+route_detail -incremental true 
+save_block -as raven_route_detail_4
+route_opt
+
+route_opt 
+save_block -as raven_route_opt_4
+
+route_eco
+save_block -as route_eco_done
+connect_pg_net
+
+###### app option enabled 
+route_detail -incremental true
+save_block -as route_detail_done2
+set_app_options -name route.common.wire_on_grid_by_layer_name -value {{M1 true} {M2 true}}
+
+
+route_opt
+save_block -as route_opt_done2
+
+
+route_eco 
+save_block -as route_eco2_done
+
+route_eco -nets {cpu/N6066}
+save_block -as route_eco4
+
+###################enabled app option (route.detail.var_spacing_to_same_net true)
+route_detail -incremental true 
+route_opt 
+route_eco -reuse_existing_global_route true -reroute modified_nets_only 
+save_block -as route_685
+if {REPORT_QOR} {
+	redirect ../reports/${CURRENT_STEP}/qor {source -echo ../scripts/report_qor.tcl}
+}
+
+save_lib
+
+save_block
+
+create_abstract -read_only
+
+create_frame -block_all
+
+save_lib
+
+save_block
+
+echo [date]  ../route
+
+save_lib
+
+close_block -f
+
+close_lib
+
+exit
+size_cell adc0_clksrc_reg_1_ -lib_cell saed14lvt_ss0p72v125c/SAEDLVT14_FDP_V2LP_1
+size_cell adc0_clksrc_reg_1_ -lib_cell saed14rvt_ss0p6v125c/SAEDRVT14_FDP_V2LP_1
+change_selection [add_buffer [get_nets -design [current_block] {n175}] -lib_cell saed14lvt_ss0p72v125c/SAEDLVT14_BUF_1]
+size_cell clock_opt_ctsccd_setup_inst_9681 -lib_cell saed14rvt_ss0p6v125c/SAEDRVT14_INV_S_1
+size_cell clock_opt_ctsccd_setup_inst_9682 -lib_cell saed14rvt_ss0p6v125c/SAEDRVT14_INV_1
+size_cell adc0_clksrc_reg_1_ -lib_cell saed14lvt_ss0p72v125c/SAEDLVT14_FDP_V2LP_1
+size_cell clk_gate_rcosc_output_dest_reg/latch -lib_cell saed14lvt_ss0p72v125c/SAEDLVT14_CKGTPLT_V5_1
