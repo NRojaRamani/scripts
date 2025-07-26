@@ -1,0 +1,106 @@
+set_host_options -max_cores 16
+source -echo "../scripts/design_setup.tcl"
+set REPORT_QOR 1
+set PREVIOUS_STEP placement
+set CURRENT_STEP cts
+
+sh mkdir ../reports/${CURRENT_STEP}
+sh mkdir ../outputs/${CURRENT_STEP}
+
+open_lib ${DESIGN_LIBRARY}
+
+copy_block -from ${DESIGN_NAME}/${PREVIOUS_STEP} -to ${DESIGN_NAME}/${CURRENT_STEP}
+current_block ${DESIGN_NAME}/${CURRENT_STEP}
+source -echo ../scripts/upf.tcl 
+
+set_svf ${OUTPUTS_DIR}/${DESIGN_NAME}.${CURRENT_STEP}.svf
+
+
+
+###set active sceanrios for the step (please include cts and hold scenarios for CCD)
+
+if {$CLOCK_OPT_CTS_ACTIVE_SCENARIO_LIST!=""} {
+    set_scenario_status -active false [get_scenarios -filter active]
+    set_scenario_status -active true $CLOCK_OPT_CTS_ACTIVE_SCENARIO_LIST
+}
+
+
+if {[sizeof_collection [get_scenarios -filter "hold && active"]]==0 } {
+
+
+puts "WARNING: NO actiive hold scenario is found. Recommended to enable hold scenarios here such that CCD skewing can consider them."
+
+
+	puts "info: please activate hold scenarios for place_opt if they are available." 
+}
+
+
+################################################################################################
+############################### VARIABLES######################################################
+################################################################################################
+
+
+set_app_options -name cts.common.user_instance_name_prefix -value clock_opt_cts
+set_app_options -name opt.common.user_instance_name_prefix -value clock_opt_cts_opt
+set_app_options -name cts.common.max_fanout -value 32
+
+
+
+set_dont_touch $CTS_LIB_CELL_PATTERN_LIST false
+set_lib_cell_purpose -exclude cts [get_lib_cells]
+set_lib_cell_purpose -include cts $CTS_LIB_CELL_PATTERN_LIST
+
+
+
+
+################################################################################################
+#################################clock_opt######################################################
+################################################################################################
+
+#clock_opt -from build_clock -to build_clock
+#clock_opt -from route_clock -to route_clock
+
+
+set_voltage 0.6 -object_list {VDD} -corners ss0p6v125c
+set_voltage 0.6 -object_list {VDD} -corners ss0p72v125c
+set_voltage 0.72 -object_list {VDDh} -corners ss0p72v125c
+set_voltage 0.72 -object_list {VDDh} -corners ss0p6v125c
+
+set_app_options -name clock_opt.place.congestion_effort -value high
+set_app_options -name clock_opt.hold.effort -value high
+
+clock_opt
+connect_pg_net
+save_block -as raven_cts_4
+
+
+
+set_app_options -name clock_opt.hold.effort -value high
+clock_opt
+save_block -as  clock2
+
+################################################################################################
+#################################Sanity checks and qor reports######################################################
+################################################################################################
+
+
+if {$REPORT_QOR} {
+
+    redirect ../reports/${CURRENT_STEP}/qor {source ../scripts/report_qor.tcl}
+
+}
+
+################################################################################################
+################################save######################################################
+################################################################################################
+
+
+save_block
+create_abstract -read_only
+create_frame -block_all true
+save_lib
+
+echo [date]>../cts
+close_blocks -f
+close_lib
+exit
